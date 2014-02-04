@@ -3,36 +3,21 @@
 #==============================================================================
 
 # Collect source files
-AS_SRC := $(shell find . -type f -name '*.s')
-C_SRC := $(shell find . -type f -name '*.c')
-CXX_SRC := $(shell find . -type f -name '*.cpp')
+AS_SRC := ${shell find . -type f -name '*.s'}
+C_SRC := ${shell find . -type f -name '*.c'}
+CXX_SRC := ${shell find . -type f -name '*.cpp'}
 
 # Get location of compiled objects
-AS_OBJ := $(AS_SRC:./%.s=%.o)
-C_OBJ := $(C_SRC:./%.c=%.o)
-CXX_OBJ := $(CXX_SRC:./%.cpp=%.o)
+AS_OBJ := ${AS_SRC:./%.s=%.o}
+C_OBJ := ${C_SRC:./%.c=%.o}
+CXX_OBJ := ${CXX_SRC:./%.cpp=%.o}
 
 # Combine object file lists
-OBJS=$(C_OBJ) $(AS_OBJ) $(CXX_OBJ)
-
-#==============================================================================
-#     Target properties
-#==============================================================================
-
-# Microcontroller properties.
-# Set these based on $(PART) variable:
-
-CPU=-mcpu=cortex-m4
-FPU=-mfpu=fpv4-sp-d16 -mfloat-abi=softfp
-
-# Linker file name
-LINKER_FILE = $(PART).ld
+OBJS=${C_OBJ} ${AS_OBJ} ${CXX_OBJ}
 
 #==============================================================================
 #     Toolchain settings
 #==============================================================================
-
-os:=${shell uname -s}
 
 # Toolchain executables
 PREFIX_ARM = arm-none-eabi
@@ -49,67 +34,74 @@ OD   = ${PREFIX_ARM}-objdump
 SIZE = ${PREFIX_ARM}-size
 
 # Paths to TI libraries
-# STELLARISWARE = /Developer/stellarisware
-TIVIAWARE     = /Developer/tiviaware
+OS:=${shell uname -s}
+ifneq ($(findstring CYGWIN, ${OS}), )
+# Windows
+TI_ROOT = /cygdrive/c/ti/
+else
+ifneq ($(findstring Darwin, ${OS}), )
+# Mac OSX
+TI_ROOT = /Developer/ti
+else
+# Linux
+TI_ROOT = ${HOME}/ti
+endif
+endif
 
-STELLARISWARE = C\:/ti/stellarisware
-
-# Choose which library path to use (Tivia/Stellaris)
-TI_INCLUDE_PATH = $(STELLARISWARE)
-
-# libdriver file for Stellarisware on Cortex M3
-LIBDRIVER_FILE=driverlib/gcc-cm4f/libdriver-cm4f.a
-
-# libdriver file for Stellarisware on Cortex M4F
-# LIBDRIVER_FILE=driverlib/gcc-cm3/libdriver-cm3.a
-
-# libdriver file for Tiviaware on Cortex M4
-# LIBDRIVER_FILE=driverlib/gcc/libdriver.a
+STELLARISWARE = ${TI_ROOT}/stellarisware
+TIVIAWARE     = ${TI_ROOT}/tiviaware
 
 # Define symbols
-DEFS = -DPART_$(PART) \
-	   -DTARGET_IS_BLIZZARD_RA1
+DEF_SYMS = PART_${PART}           \
+		   TARGET_IS_BLIZZARD_RA1
 
 # Include paths
-INCS = -I$(TI_INCLUDE_PATH)
+INC_PATHS = ${TI_INCLUDE_PATH}
+
+# Add proper flags to includes and defines
+DEFS = ${patsubst %,-D%,${subst :, ,${DEF_SYMS}}}
+INCS = ${patsubst %,-I%,${subst :, ,${INC_PATHS}}}
 
 # Options for assembler.
 ASFLAGS=-mthumb \
-        ${CPU}  \
-        ${FPU}  \
-        -MD
+		${CPU}  \
+		${FPU}  \
+		-MD     \
+		${DEFS}
 
 # Arguments for C compiler.
 CFLAGS=-mthumb             \
-       ${CPU}              \
-       ${FPU}              \
-       -O3                 \
-       -ffunction-sections \
-       -fdata-sections     \
-       -std=c99            \
-       -Wall               \
-       -c                  \
-       -g                  \
-       -MD                 \
-       ${INCS}             \
-       $(DEFS)
+	   ${CPU}              \
+	   ${FPU}              \
+	   -O3                 \
+	   -ffunction-sections \
+	   -fdata-sections     \
+	   -std=c99            \
+	   -Wall               \
+	   -c                  \
+	   -g                  \
+	   -MD                 \
+	   ${INCS}             \
+	   ${DEFS}
 
 # Arguments for C++ compiler
 CXXFLAGS=-mthumb             \
-         ${CPU}              \
-         ${FPU}              \
-         -O3                 \
-         -ffunction-sections \
-         -fdata-sections     \
-         -Wall               \
-         -c                  \
-         -g                  \
-         -MD                 \
-         ${INCS}             \
-         $(DEFS)
+		 ${CPU}              \
+		 ${FPU}              \
+		 -O3                 \
+		 -ffunction-sections \
+		 -fdata-sections     \
+		 -Wall               \
+		 -c                  \
+		 -g                  \
+		 -MD                 \
+		 ${INCS}             \
+		 ${DEFS}
 
 # Flags for linker
-LFLAGS = --gc-sections --entry reset_handler -Map build/$(PROJECT_NAME).map
+LFLAGS = --gc-sections                             \
+		 --entry reset_handler                     \
+		 -Map ${ARTIFACTS_DIR}/${PROJECT_NAME}.map
 
 # Get the path to libgcc, libc.a and libm.a for linking
 LIB_GCC_PATH=${shell ${CC} ${CFLAGS} -print-libgcc-file-name}
@@ -117,10 +109,10 @@ LIBC_PATH=${shell ${CC} ${CFLAGS} -print-file-name=libc.a}
 LIBM_PATH=${shell ${CC} ${CFLAGS} -print-file-name=libm.a}
 
 # Get path to Stellaris/Tivia library
-LIBDRIVER_PATH=${TI_INCLUDE_PATH}/$(LIBDRIVER_FILE)
+LIBDRIVER_PATH=${TI_INCLUDE_PATH}/${LIBDRIVER_FILE}
 
 # List of all libraries to link
-LIBS = $(LIBM_PATH) $(LIBC_PATH) $(LIB_GCC_PATH)
+LIBS = ${LIBM_PATH} ${LIBC_PATH} ${LIB_GCC_PATH}
 
 # Flags for objcopy
 CPFLAGS = -Obinary
@@ -134,45 +126,73 @@ FLASHER=lm4flash
 FLASHER_FLAGS=
 
 #==============================================================================
+#     Target properties
+#==============================================================================
+
+# Microcontroller properties.
+ifneq ($(findstring LM3, ${PART}), )
+CPU=-mcpu=cortex-m3
+FPU=
+LIBDRIVER_FILE=driverlib/gcc-cm3/libdriver-cm3.a
+TI_INCLUDE_PATH = ${STELLARISWARE}
+else
+ifneq ($(findstring LM4, ${PART}), )
+CPU=-mcpu=cortex-m4
+FPU=-mfpu=fpv4-sp-d16 -mfloat-abi=softfp
+LIBDRIVER_FILE=driverlib/gcc-cm4f/libdriver-cm4f.a
+TI_INCLUDE_PATH = ${STELLARISWARE}
+else
+ifneq ($(findstring TM4, ${PART}), )
+CPU=-mcpu=cortex-m4
+FPU=-mfpu=fpv4-sp-d16 -mfloat-abi=softfp
+LIBDRIVER_FILE=driverlib/gcc/libdriver.a
+TI_INCLUDE_PATH = ${TIVIAWARE}
+endif
+endif
+endif
+
+# Linker file name
+LINKER_FILE = linker/${PART}.ld
+
+#==============================================================================
 #    Make rules
 #==============================================================================
 
-
 # Include autogenerated depend files
-# -include $(AS_SRC:.s=.d)
-# -include $(C_SRC:.c=.d)
-# -include $(CXX_SRC:.cpp=.d)
+-include ${AS_SRC:.s=.d}
+-include ${C_SRC:.c=.d}
+-include ${CXX_SRC:.cpp=.d}
 
 # Compile assembly files
 %.o: %.s
-	@echo "AS " $<
-	@$(AS) -c $(ASFLAGS) $< -o $@
+	@echo "AS  $<"
+	@${AS} -c ${ASFLAGS} $< -o $@
 
 # Compile C files
 %.o: %.c
-	@echo "CC " $@
-	@$(CC) -c $(CFLAGS) $< -o $@
+	@echo "CC  $@"
+	@${CC} -c ${CFLAGS} $< -o $@
 
 # Compile C++ files
 %.o: %.cpp
-	@echo CXX $<
-	@$(CXX) -c $(CXXFLAGS) $< -o $@
+	@echo "CXX $<"
+	@${CXX} -c ${CXXFLAGS} $< -o $@
 
 # Transform .axf to .bin for flasher util
 %.bin: %.axf
-	@mkdir -p $(dir $@)
-	@echo "CP " $< "->" $@
-	@$(CP) $(CPFLAGS) $< $@
+	@mkdir -p ${dir $@}
+	@echo "CP  $< -> $@"
+	@${CP} ${CPFLAGS} $< $@
 
 # Make assembly listing from executable
 %.lst: %.axf
-	@mkdir -p $(dir $@)
-	@echo "OD " $@
-	@$(OD) $(ODFLAGS) $< > $@
+	@mkdir -p ${dir $@}
+	@echo "OD  $@"
+	@${OD} ${ODFLAGS} $< > $@
 
 # Calculate code size
 %.size: %.axf
-	@mkdir -p $(dir $@)
+	@mkdir -p ${dir $@}
 	@echo
 	@echo Code size:
-	@$(SIZE) $< | tee $@
+	@${SIZE} $< | tee $@

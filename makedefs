@@ -170,7 +170,7 @@ LINKER_FILE = linker/${PART}.ld
 
 # Compile C files
 %.o: %.c
-	@echo "CC  $@"
+	@echo "CC  $<"
 	@${CC} -c ${CFLAGS} $< -o $@
 
 # Compile C++ files

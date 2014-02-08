@@ -60,6 +60,7 @@ ${LIBDRIVER_PATH}:
 	make -C ${DRIVERLIB_PATH}
 
 # Project executable
+.NOTPARALLEL:
 ${EXE}: ${OBJS} ${LIBDRIVER_PATH}
 	@mkdir -p ${dir $@}
 	@if [ 'x${VERBOSE}' = x ];          \
@@ -71,17 +72,20 @@ ${EXE}: ${OBJS} ${LIBDRIVER_PATH}
 	@${LD} ${LFLAGS} -o $@ $^
 
 # Clean compiled files
+.NOTPARALLEL:
 .PHONY: clean
 clean:
 	rm -rf ${ARTIFACTS_DIR}
 
 # Flash the target
+.NOTPARALLEL:
 .PHONY: flash
 flash: ${ARTIFACTS_DIR}/${PROJECT_NAME}.bin
 	@echo Flashing...
 	${FLASHER} $< ${FLASHER_FLAGS}
 
 # Create GDB initilization file
+.NOTPARALLEL:
 .gdbinit: ${EXE}
 	@echo file ${EXE} > .gdbinit
 	@echo target remote localhost:7777 >> .gdbinit
@@ -89,6 +93,7 @@ flash: ${ARTIFACTS_DIR}/${PROJECT_NAME}.bin
 	@echo load >> .gdbinit
 
 # Run a debug session
+.NOTPARALLEL:
 .PHONY: debug
 debug: all .gdbinit
 	@echo Starting debug server...

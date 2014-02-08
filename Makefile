@@ -41,7 +41,7 @@ ARTIFACTS = ${EXE}                                \
 #==============================================================================
 
 # Microcontroller properties.
-PART=TM4C1233H6PM
+PART=LM4F120H5QR
 
 #==============================================================================
 #    Make rules
@@ -49,8 +49,10 @@ PART=TM4C1233H6PM
 
 all: ${LIBDRIVER_PATH} ${ARTIFACTS}
 
+ifneq ($(MAKECMDGOALS),clean)
 # Contains compile rules and toolchain settings
 include makedefs
+endif
 
 # TI Stellaris/Tivia library
 ${LIBDRIVER_PATH}:
@@ -61,15 +63,12 @@ ${LIBDRIVER_PATH}:
 ${EXE}: ${OBJS} ${LIBDRIVER_PATH}
 	@mkdir -p ${dir $@}
 	@echo "LD  $@"
-	@${LD} -T ${LINKER_FILE} ${LFLAGS} -o $@ $^ ${LIBS}
+	${LD} ${LFLAGS} -o $@ $^
 
 # Clean compiled files
 .PHONY: clean
 clean:
-	@echo Removing compiled files...
-	@rm -r ${ARTIFACTS_DIR}
-	@find . -name \*.d | xargs rm
-	@find . -name \*.o | xargs rm
+	rm -rf ${ARTIFACTS_DIR}
 
 # Flash the target
 .PHONY: flash

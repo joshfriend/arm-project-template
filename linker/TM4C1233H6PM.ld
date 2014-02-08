@@ -23,63 +23,86 @@
 MEMORY
 {
     FLASH (rx)  : ORIGIN = 0x00000000, LENGTH = 512K
-    SRAM  (rwx) : ORIGIN = 0x20000000, LENGTH = 32K
+    RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 32K
 }
 
 /* The stack size should be the same size as SRAM */
-stack_size = 32K;
+STACK_SIZE = 32K;
 
 SECTIONS
 {
     /* Executable code stored in text */
     .text :
     {
+        . = ALIGN(4);
         _text = .;
+        KEEP(*(.isr_vector))
+        *(.text .text* .gnu.linkonce.t.*)
+        *(.glue_7t) *(.glue_7)
+        *(.rodata .rodata* .gnu.linkonce.r.*)
+        *(.ARM.extab* .gnu.linkonce.armextab.*)
 
-        /* Vector table is stored at the start of FLASH.
-         * Name must match what is used in startup_gcc.c
-         */
-        KEEP(*(.nvic_table))
+        . = ALIGN(4);
+        KEEP(*(.init))
+        . = ALIGN(4);
+        __preinit_array_start = .;
+        KEEP (*(SORT(.preinit_array*)))
+        KEEP (*(.preinit_array))
+        __preinit_array_end = .;
 
-        *(.text*)
-        *(.rodata*)
-    } > FLASH
+        . = ALIGN(4);
+        __init_array_start = .;
+        KEEP (*(SORT(.init_array.*)))
+        KEEP (*(.init_array))
+        __init_array_end = .;
 
-    /* Used for C++ exception handling.
-     * This section is sorted and must be kept separate.
-     */
-    .ARM.exidx :
-    {
-        *(.ARM.exidx)
+        . = ALIGN(4);
+        KEEP(*(.fini))
+
+        . = ALIGN(4);
+        __fini_array_start = .;
+        KEEP (*(.fini_array))
+        KEEP (*(SORT(.fini_array.*)))
+        __fini_array_end = .;
+
+        . = ALIGN(4);
         _etext = .;
     } > FLASH
 
-    /* .data stores initialiezd data */
-    .data : AT(ADDR(.ARM.exidx) + SIZEOF(.ARM.exidx))
+    .data : AT(ADDR(.text) + SIZEOF(.text))
     {
+        . = ALIGN(4);
         _data = .;
-
-        /* Vector table is stored in RAM after startup.
-         * Name must match what is used by TI libraries.
-         */
         *(vtable)
-
-        *(.data*)
+        *(.data .data* .gnu.linkonce.d.*)
         _edata = .;
-    } > SRAM
+    } > RAM
 
-    /* .bss stores uninitialized data */
-    .bss :
+    .bss (NOLOAD):
     {
+        . = ALIGN(4);
         _bss = .;
-        *(.bss*)
+        *(.bss .bss*)
         *(COMMON)
+        . = ALIGN(4);
         _ebss = .;
+        . = ALIGN(8);
+    } > RAM
 
-        /* sbrk() syscall expects this */
-        end = .;
+    PROVIDE_HIDDEN (__exidx_start = .);
+    .ARM.exidx :
+    {
+      *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+    } > RAM
+    PROVIDE_HIDDEN (__exidx_end = .);
 
-        /* Create a symbol for the top of the stack */
-        _stack_top = ADDR(.data) + stack_size;
-    } > SRAM
+    . = ALIGN(4);
+    _end = . ;
+
 }
+
+/* end of allocated ram is start of heap, heap grows up towards stack*/
+PROVIDE(end = _end);
+
+/* top of stack starts at end of ram, stack grows down towards heap */
+PROVIDE(_stack_top = ORIGIN(RAM) + LENGTH(RAM));

@@ -50,7 +50,8 @@ TIVIAWARE     = ${TI_ROOT}/tiviaware
 
 # Define symbols
 DEF_SYMS = PART_${PART}           \
-		   TARGET_IS_BLIZZARD_RA1
+		   TARGET_IS_BLIZZARD_RA1 \
+		   gcc
 
 # Include paths
 INC_PATHS = ${TI_INCLUDE_PATH}
@@ -84,6 +85,8 @@ CXXFLAGS=-mthumb             \
 		 ${FPU}              \
 		 -O3                 \
 		 -Wall               \
+		 -fno-exceptions     \
+		 -fno-rtti           \
 		 -c                  \
 		 -g                  \
 		 -MD                 \
@@ -91,14 +94,16 @@ CXXFLAGS=-mthumb             \
 		 ${DEFS}
 
 # Flags for linker
-LFLAGS = -Wl,-T,${LINKER_FILE}                         \
-         -Wl,--entry,reset_handler                     \
-         -Wl,--gc-sections                             \
+LFLAGS = -T ${LINKER_FILE}                             \
+         -mthumb                                       \
+         ${CPU}                                        \
+         -nodefaultlibs                                \
+         -nostartfiles                                 \
 		 -Wl,-Map,${ARTIFACTS_DIR}/${PROJECT_NAME}.map \
+         -Wl,--gc-sections                             \
+         -Wl,--entry,reset_handler                     \
 		 -lc                                           \
 		 -lm                                           \
-		 -L${dir ${LIBDRIVER_PATH}}                    \
-		 ${DRIVER}
 
 # Get the path to libgcc, libc.a and libm.a for linking
 LIB_GCC_PATH=${shell ${CC} ${CFLAGS} -print-libgcc-file-name}
@@ -106,7 +111,7 @@ LIBC_PATH=${shell ${CC} ${CFLAGS} -print-file-name=libc.a}
 LIBM_PATH=${shell ${CC} ${CFLAGS} -print-file-name=libm.a}
 
 # Get path to Stellaris/Tivia library
-LIBDRIVER_PATH=${TI_INCLUDE_PATH}/${LIBDRIVER_DIR}
+LIBDRIVER_PATH=${TI_INCLUDE_PATH}/${LIBDRIVER_FILE}
 
 # List of all libraries to link
 LIBS = ${LIBM_PATH} ${LIBC_PATH} ${LIB_GCC_PATH}
@@ -131,21 +136,21 @@ ifneq ($(findstring LM3, ${PART}), )
 CPU=-mcpu=cortex-m3
 FPU=
 DRIVER=-ldriver-cm3
-LIBDRIVER_DIR=driverlib/gcc-cm3
+LIBDRIVER_FILE=driverlib/gcc-cm3/libdriver-cm3.a
 TI_INCLUDE_PATH = ${STELLARISWARE}
 else
 ifneq ($(findstring LM4, ${PART}), )
 CPU=-mcpu=cortex-m4
 FPU=-mfpu=fpv4-sp-d16 -mfloat-abi=softfp
 DRIVER=-ldriver-cm4f
-LIBDRIVER_DIR=driverlib/gcc-cm4f
+LIBDRIVER_FILE=driverlib/gcc-cm4f/libdriver-cm4f.a
 TI_INCLUDE_PATH = ${STELLARISWARE}
 else
 ifneq ($(findstring TM4, ${PART}), )
 CPU=-mcpu=cortex-m4
 FPU=-mfpu=fpv4-sp-d16 -mfloat-abi=softfp
 DRIVER=-ldriver
-LIBDRIVER_DIR=driverlib/gcc
+LIBDRIVER_FILE=driverlib/gcc/libdriver.a
 TI_INCLUDE_PATH = ${TIVIAWARE}
 endif
 endif
@@ -167,31 +172,56 @@ endif
 # Compile assembly files
 build/%.o: %.a
 	@mkdir -p ${dir $@}
-	@echo "AS  $<"
-	${AS} ${ASFLAGS} $< -o $@
+	@if [ 'x${VERBOSE}' = x ];           \
+	 then                                \
+	     echo "AS  $<";                  \
+	 else                                \
+	     echo ${AS} ${ASFLAGS} $< -o $@; \
+	 fi
+	@${AS} ${ASFLAGS} $< -o $@
 
 # Compile C files
 build/%.o: %.c
 	@mkdir -p ${dir $@}
-	@echo "CC  $<"
-	${CC} -c ${CFLAGS} $< -o $@
+	@if [ 'x${VERBOSE}' = x ];             \
+	 then                                  \
+	     echo "CC  $<";                    \
+	 else                                  \
+	     echo ${CC} -c ${CFLAGS} $< -o $@; \
+	 fi
+	@${CC} -c ${CFLAGS} $< -o $@
 
 # Compile C++ files
 build/%.o: %.cpp
 	@mkdir -p ${dir $@}
-	@echo "CXX $<"
-	${CXX} -c ${CXXFLAGS} $< -o $@
+	@if [ 'x${VERBOSE}' = x ];                \
+	 then                                     \
+	     echo "CXX $<";                       \
+	 else                                     \
+	     echo ${CXX} -c ${CXXFLAGS} $< -o $@; \
+	 fi
+	@${CXX} -c ${CXXFLAGS} $< -o $@
 
 # Transform .axf to .bin for flasher util
 %.bin: %.axf
 	@mkdir -p ${dir $@}
-	@echo "CP  $< -> $@"
+	@if [ 'x${VERBOSE}' = x ];        \
+	 then                             \
+	     echo "CP  $< -> $@";         \
+	 else                             \
+	     echo ${CP} ${CPFLAGS} $< $@; \
+	 fi
 	@${CP} ${CPFLAGS} $< $@
 
 # Make assembly listing from executable
 %.lst: %.axf
 	@mkdir -p ${dir $@}
-	@echo "OD  $@"
+	@if [ 'x${VERBOSE}' = x ];          \
+	 then                               \
+	     echo "OD  $@";                 \
+	 else                               \
+	     echo ${OD} ${ODFLAGS} $< > $@; \
+	 fi
 	@${OD} ${ODFLAGS} $< > $@
 
 # Calculate code size

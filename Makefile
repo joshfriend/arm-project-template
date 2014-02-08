@@ -62,8 +62,13 @@ ${LIBDRIVER_PATH}:
 # Project executable
 ${EXE}: ${OBJS} ${LIBDRIVER_PATH}
 	@mkdir -p ${dir $@}
-	@echo "LD  $@"
-	${LD} ${LFLAGS} -o $@ $^
+	@if [ 'x${VERBOSE}' = x ];          \
+	 then                               \
+	     echo "LD  $@";                 \
+	 else                               \
+	     echo ${LD} ${LFLAGS} -o $@ $^; \
+	 fi
+	@${LD} ${LFLAGS} -o $@ $^
 
 # Clean compiled files
 .PHONY: clean

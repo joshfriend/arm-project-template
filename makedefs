@@ -72,7 +72,6 @@ CFLAGS=-mthumb             \
 	   -O3                 \
 	   -std=c99            \
 	   -Wall               \
-	   -Wno-attributes     \
 	   -c                  \
 	   -g                  \
 	   -MD                 \
@@ -104,6 +103,7 @@ LFLAGS = -T ${LINKER_FILE}                             \
          -Wl,--entry,reset_handler                     \
 		 -lc                                           \
 		 -lm                                           \
+		 -lgcc                                         \
 
 # Get the path to libgcc, libc.a and libm.a for linking
 LIB_GCC_PATH=${shell ${CC} ${CFLAGS} -print-libgcc-file-name}

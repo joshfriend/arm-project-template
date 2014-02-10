@@ -1,0 +1,41 @@
+{
+    "folders":
+    [
+        {
+            "file_exclude_patterns":
+            [
+                "*.sublime-*"
+            ],
+            "folder_exclude_patterns":
+            [
+                "__pycache__",
+                "bin",
+                "obj",
+                "gif",
+                ".dSYM"
+            ],
+            "path": "."
+        },
+        {
+            "file_exclude_patterns":
+            [
+                "*.sublime-*"
+            ],
+            "folder_exclude_patterns":
+            [
+                "__pycache__",
+                "bin",
+                "obj",
+                "gif",
+                ".dSYM"
+            ],
+            "path": "/Developer/ti",
+            "name": "ti"
+        }
+    ],
+    "settings":
+    {
+        "tab_size": 4,
+        "translate_tabs_to_spaces": true
+    }
+}

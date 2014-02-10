@@ -81,6 +81,7 @@ clean:
 .NOTPARALLEL:
 debug.gdbcmd: ${EXE}
 	@echo file ${EXE} > $@
+	@echo set tdesc filename target.xml >> $@
 	@echo target remote localhost:3333 >> $@
 	@echo monitor reset halt >> $@
 	@echo load >> $@
@@ -89,6 +90,7 @@ debug.gdbcmd: ${EXE}
 .NOTPARALLEL:
 flash.gdbcmd: ${EXE}
 	@echo file ${EXE} > $@
+	@echo set tdesc filename target.xml >> $@
 	@echo target remote localhost:3333 >> $@
 	@echo monitor reset halt >> $@
 	@echo load >> $@

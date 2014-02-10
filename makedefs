@@ -34,7 +34,7 @@ SIZE = ${PREFIX_ARM}-size
 OS:=${shell uname -s}
 ifneq ($(findstring CYGWIN, ${OS}), )
 # Windows
-TI_ROOT = /cygdrive/c/ti/
+TI_ROOT = C\:/ti/
 else
 ifneq ($(findstring Darwin, ${OS}), )
 # Mac OSX
@@ -57,8 +57,8 @@ DEF_SYMS = PART_${PART}           \
 INC_PATHS = ${TI_INCLUDE_PATH}
 
 # Add proper flags to includes and defines
-DEFS = ${patsubst %,-D%,${subst :, ,${DEF_SYMS}}}
-INCS = ${patsubst %,-I%,${subst :, ,${INC_PATHS}}}
+DEFS = ${patsubst %,-D%,${subst ' ', ,${DEF_SYMS}}}
+INCS = ${patsubst %,-I%,${subst ' ', ,${INC_PATHS}}}
 
 # Options for assembler.
 ASFLAGS=-mthumb \
@@ -70,7 +70,7 @@ CFLAGS=-mthumb             \
 	   ${CPU}              \
 	   ${FPU}              \
 	   -O3                 \
-	   -std=c99            \
+	   -std=gnu99          \
 	   -Wall               \
 	   -c                  \
 	   -g                  \

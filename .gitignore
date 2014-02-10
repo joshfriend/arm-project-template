@@ -1,0 +1,23 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Generated files
+*.d
+*.map
+*.size
+*.lst
+
+# Compiled executables
+*.elf
+*.axf
+*.bin
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a

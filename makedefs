@@ -1,0 +1,233 @@
+#==============================================================================
+#     Stuff to compile
+#==============================================================================
+
+# Collect source files
+AS_SRC := ${shell find . -type f -name '*.s'}
+C_SRC := ${shell find . -type f -name '*.c'}
+CXX_SRC := ${shell find . -type f -name '*.cpp'}
+
+OBJS = $(patsubst ./%.o, build/%.o, $(C_SRC:.c=.o))       \
+       $(patsubst ./%.o, build/%.o, $(CXX_SRC:.cpp=.o)) \
+       $(patsubst ./%.o, build/%.o, $(AS_SRC:.s=.o))
+
+#==============================================================================
+#     Toolchain settings
+#==============================================================================
+
+# Toolchain executables
+PREFIX_ARM = arm-none-eabi
+AR   = ${PREFIX_ARM}-ar
+AS   = ${PREFIX_ARM}-as
+CC   = ${PREFIX_ARM}-gcc
+CP   = ${PREFIX_ARM}-objcopy
+CPP  = ${PREFIX_ARM}-cpp
+CXX  = ${PREFIX_ARM}-g++
+GDB  = ${PREFIX_ARM}-gdb
+# Seems to work better than *-ld:
+LD   = ${PREFIX_ARM}-gcc
+NM   = ${PREFIX_ARM}-nm
+OD   = ${PREFIX_ARM}-objdump
+SIZE = ${PREFIX_ARM}-size
+
+# Paths to TI libraries
+OS:=${shell uname -s}
+ifneq ($(findstring CYGWIN, ${OS}), )
+# Windows
+TI_ROOT = /cygdrive/c/ti/
+else
+ifneq ($(findstring Darwin, ${OS}), )
+# Mac OSX
+TI_ROOT = /Developer/ti
+else
+# Linux
+TI_ROOT = ${HOME}/ti
+endif
+endif
+
+STELLARISWARE = ${TI_ROOT}/stellarisware
+TIVIAWARE     = ${TI_ROOT}/tiviaware
+
+# Define symbols
+DEF_SYMS = PART_${PART}           \
+		   TARGET_IS_BLIZZARD_RA1 \
+		   gcc
+
+# Include paths
+INC_PATHS = ${TI_INCLUDE_PATH}
+
+# Add proper flags to includes and defines
+DEFS = ${patsubst %,-D%,${subst :, ,${DEF_SYMS}}}
+INCS = ${patsubst %,-I%,${subst :, ,${INC_PATHS}}}
+
+# Options for assembler.
+ASFLAGS=-mthumb \
+		${CPU}  \
+		${FPU}
+
+# Arguments for C compiler.
+CFLAGS=-mthumb             \
+	   ${CPU}              \
+	   ${FPU}              \
+	   -O3                 \
+	   -std=c99            \
+	   -Wall               \
+	   -c                  \
+	   -g                  \
+	   -MD                 \
+	   ${INCS}             \
+	   ${DEFS}
+
+# Arguments for C++ compiler
+CXXFLAGS=-mthumb             \
+		 ${CPU}              \
+		 ${FPU}              \
+		 -O3                 \
+		 -Wall               \
+		 -fno-exceptions     \
+		 -fno-rtti           \
+		 -c                  \
+		 -g                  \
+		 -MD                 \
+		 ${INCS}             \
+		 ${DEFS}
+
+# Flags for linker
+LFLAGS = -T ${MEM_FILE}                                \
+         -T ${SECTION_FILE}                                \
+         -mthumb                                       \
+         ${CPU}                                        \
+		 -Wl,-Map,${ARTIFACTS_DIR}/${PROJECT_NAME}.map \
+         -Wl,--gc-sections                             \
+         -Wl,--entry,reset_handler                     \
+		 -lc                                           \
+		 -lm                                           \
+		 -lgcc                                         \
+
+# Get the path to libgcc, libc.a and libm.a for linking
+LIB_GCC_PATH=${shell ${CC} ${CFLAGS} -print-libgcc-file-name}
+LIBC_PATH=${shell ${CC} ${CFLAGS} -print-file-name=libc.a}
+LIBM_PATH=${shell ${CC} ${CFLAGS} -print-file-name=libm.a}
+
+# Get path to Stellaris/Tivia library
+LIBDRIVER_PATH=${TI_INCLUDE_PATH}/${LIBDRIVER_FILE}
+
+# List of all libraries to link
+LIBS = ${LIBM_PATH} ${LIBC_PATH} ${LIB_GCC_PATH}
+
+# Flags for objcopy
+CPFLAGS = -Obinary
+
+# Flags for objdump
+ODFLAGS = -S
+
+# Programmer tool path
+FLASHER=lm4flash
+# Flags for the programmer tool.
+FLASHER_FLAGS=
+
+#==============================================================================
+#     Target properties
+#==============================================================================
+
+# Microcontroller properties.
+ifneq ($(findstring LM3, ${PART}), )
+CPU=-mcpu=cortex-m3
+FPU=
+DRIVER=-ldriver-cm3
+LIBDRIVER_FILE=driverlib/gcc-cm3/libdriver-cm3.a
+TI_INCLUDE_PATH = ${STELLARISWARE}
+else
+ifneq ($(findstring LM4, ${PART}), )
+CPU=-mcpu=cortex-m4
+FPU=-mfpu=fpv4-sp-d16 -mfloat-abi=softfp
+DRIVER=-ldriver-cm4f
+LIBDRIVER_FILE=driverlib/gcc-cm4f/libdriver-cm4f.a
+TI_INCLUDE_PATH = ${STELLARISWARE}
+else
+ifneq ($(findstring TM4, ${PART}), )
+CPU=-mcpu=cortex-m4
+FPU=-mfpu=fpv4-sp-d16 -mfloat-abi=softfp
+DRIVER=-ldriver
+LIBDRIVER_FILE=driverlib/gcc/libdriver.a
+TI_INCLUDE_PATH = ${TIVIAWARE}
+endif
+endif
+endif
+
+# Linker file name
+LINKER_FILE = linker/${PART}.ld
+MEM_FILE = linker/mem.ld
+SECTION_FILE = linker/sections.ld
+
+#==============================================================================
+#    Make rules
+#==============================================================================
+
+ifneq ($(MAKECMDGOALS),clean)
+-include $(addprefix build/, $(subst .c,.d,$(C_SRC)))
+-include $(addprefix build/, $(subst .cpp,.d,$(CXX_SRC)))
+-include $(addprefix build/, $(subst .s,.d,$(AS_SRC)))
+endif
+
+# Compile assembly files
+build/%.o: %.a
+	@mkdir -p ${dir $@}
+	@if [ 'x${VERBOSE}' = x ];           \
+	 then                                \
+	     echo "AS  $<";                  \
+	 else                                \
+	     echo ${AS} ${ASFLAGS} $< -o $@; \
+	 fi
+	@${AS} ${ASFLAGS} $< -o $@
+
+# Compile C files
+build/%.o: %.c
+	@mkdir -p ${dir $@}
+	@if [ 'x${VERBOSE}' = x ];             \
+	 then                                  \
+	     echo "CC  $<";                    \
+	 else                                  \
+	     echo ${CC} -c ${CFLAGS} $< -o $@; \
+	 fi
+	@${CC} -c ${CFLAGS} $< -o $@
+
+# Compile C++ files
+build/%.o: %.cpp
+	@mkdir -p ${dir $@}
+	@if [ 'x${VERBOSE}' = x ];                \
+	 then                                     \
+	     echo "CXX $<";                       \
+	 else                                     \
+	     echo ${CXX} -c ${CXXFLAGS} $< -o $@; \
+	 fi
+	@${CXX} -c ${CXXFLAGS} $< -o $@
+
+# Transform .axf to .bin for flasher util
+%.bin: %.axf
+	@mkdir -p ${dir $@}
+	@if [ 'x${VERBOSE}' = x ];        \
+	 then                             \
+	     echo "CP  $< -> $@";         \
+	 else                             \
+	     echo ${CP} ${CPFLAGS} $< $@; \
+	 fi
+	@${CP} ${CPFLAGS} $< $@
+
+# Make assembly listing from executable
+%.lst: %.axf
+	@mkdir -p ${dir $@}
+	@if [ 'x${VERBOSE}' = x ];          \
+	 then                               \
+	     echo "OD  $@";                 \
+	 else                               \
+	     echo ${OD} ${ODFLAGS} $< > $@; \
+	 fi
+	@${OD} ${ODFLAGS} $< > $@
+
+# Calculate code size
+%.size: %.axf
+	@mkdir -p ${dir $@}
+	@echo
+	@echo Code size:
+	@${SIZE} $< | tee $@

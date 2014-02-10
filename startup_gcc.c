@@ -218,10 +218,9 @@ nvic_handler_t nvic_table[] = {
 void reset_handler(void) {
     uint32_t *src, *dest;
 
+    // Copy data initializers from flash to RAM
     src = &_etext;
     dest = &_data;
-
-    // Copy data initializers from flash to RAM
     while(dest < &_edata) {
         *dest++ = *src++;
     }

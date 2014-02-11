@@ -24,8 +24,6 @@
 #include <inc/hw_types.h>
 #include <inc/hw_nvic.h>
 
-#include "compiler.h"
-
 // Application entry point
 extern int main(void);
 
@@ -42,12 +40,16 @@ extern uint32_t _edata;
 extern uint32_t _bss;
 extern uint32_t _ebss;
 extern uint32_t _stack_top;
+extern void (*__preinit_array_start[])(void);
+extern void (*__preinit_array_end[])(void);
+extern void (*__init_array_start[])(void);
+extern void (*__init_array_end[])(void);
 
 // Typedef for exception handler function
 typedef void (*nvic_handler_t)(void);
 
 // NVIC exception table
-__attribute__ ((section(".nvic_table")))
+__attribute__((section(".nvic_table")))
 nvic_handler_t nvic_table[] = {
     // Stack pointer starts at top of RAM
     // Stack size is defined by linker script
@@ -217,6 +219,7 @@ nvic_handler_t nvic_table[] = {
 // Reset handler. Sets up for application on reset
 void reset_handler(void) {
     uint32_t *src, *dest;
+    uint32_t i, cnt;
 
     // Copy data initializers from flash to RAM
     src = &_etext;
@@ -231,6 +234,22 @@ void reset_handler(void) {
         *dest++ = 0;
     }
 
+    // Enable FPU
+    HWREG(NVIC_CPAC) = ((HWREG(NVIC_CPAC) &
+                         ~(NVIC_CPAC_CP10_M | NVIC_CPAC_CP11_M)) |
+                         NVIC_CPAC_CP10_FULL | NVIC_CPAC_CP11_FULL);
+
+    // Global C++ constructors
+    cnt = __preinit_array_end - __preinit_array_start;
+    for(i = 0; i < cnt; i++) {
+        __preinit_array_start[i]();
+    }
+
+    cnt = __init_array_end - __init_array_start;
+    for(i = 0; i < cnt; i++) {
+        __init_array_start[i]();
+    }
+
     // Application entry
     main();
 }
@@ -241,49 +260,9 @@ void nmi_handler(void) {
 }
 
 // Hardfault exception handler
-void __naked hardfault_handler(void) {
-    __asm volatile
-    (
-        " tst lr, #4                                                \n"
-        " ite eq                                                    \n"
-        " mrseq r0, msp                                             \n"
-        " mrsne r0, psp                                             \n"
-        " ldr r1, [r0, #24]                                         \n"
-        " ldr r2, handler2_address_const                            \n"
-        " bx r2                                                     \n"
-        " handler2_address_const: .word prvGetRegistersFromStack    \n"
-    );
-}
-
-void prvGetRegistersFromStack( uint32_t *pulFaultStackAddress )
-{
-    /* These are volatile to try and prevent the compiler/linker optimising them
-    away as the variables never actually get used.  If the debugger won't show the
-    values of the variables, make them global my moving their declaration outside
-    of this function. */
-    volatile uint32_t r0;
-    volatile uint32_t r1;
-    volatile uint32_t r2;
-    volatile uint32_t r3;
-    volatile uint32_t r12;
-    volatile uint32_t lr; /* Link register. */
-    volatile uint32_t pc; /* Program counter. */
-    volatile uint32_t psr;/* Program status register. */
-
-    r0 = pulFaultStackAddress[ 0 ];
-    r1 = pulFaultStackAddress[ 1 ];
-    r2 = pulFaultStackAddress[ 2 ];
-    r3 = pulFaultStackAddress[ 3 ];
-
-    r12 = pulFaultStackAddress[ 4 ];
-    lr = pulFaultStackAddress[ 5 ];
-    pc = pulFaultStackAddress[ 6 ];
-    psr = pulFaultStackAddress[ 7 ];
-
-    /* When the following line is hit, the variables contain the register values. */
+void hardfault_handler(void) {
     while(1);
 }
-
 
 // Default handler for all other exceptions
 void default_handler(void) {

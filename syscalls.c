@@ -56,9 +56,9 @@
 // int _read(int, char *, int);
 
 // Register name faking - works in collusion with the linker.
-register caddr_t stack_ptr asm("sp");
+register char * stack_ptr asm("sp");
 
-extern unsigned int _end;
+extern char _end;
 
 /* Return number of characters read, no more than 'len' */
 int _read(int file, char *ptr, int len)
@@ -126,18 +126,18 @@ int _getpid(int n)
     return 1;
 }
 
-caddr_t _sbrk(int incr)
+caddr_t _sbrk(unsigned int incr)
 {
-    static unsigned char * heap_end = NULL;
-    unsigned char * prev_heap_end;
+    static char * heap_end = NULL;
+    char * prev_heap_end;
 
     if (heap_end == NULL) {
-        heap_end = (unsigned char *)&_end;
+        heap_end = &_end;
     }
 
     prev_heap_end = heap_end;
 
-    if (heap_end + incr > stack_ptr) {
+    if (heap_end + incr > (caddr_t)stack_ptr) {
         errno = ENOMEM;
         return (caddr_t) -1;
     }
@@ -146,6 +146,20 @@ caddr_t _sbrk(int incr)
 
     return (caddr_t)prev_heap_end;
 }
+
+// caddr_t _sbrk(unsigned int incr)
+// {
+//     char *prev_heap_end;
+//     if (heap_end == 0) {
+//         heap_end = (caddr_t)&_heap_bottom;            //1
+//     }
+//     prev_heap_end = heap_end;                         //2
+//     if (heap_end + incr > (caddr_t)&_heap_top) {      //3
+//         return (caddr_t)0;                            //4
+//     }
+//     heap_end += incr;
+//     return (caddr_t) prev_heap_end;                   //5
+// }
 
 int _fstat(int file, struct stat * st)
 {

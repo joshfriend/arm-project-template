@@ -26,7 +26,7 @@
 PROJECT_NAME = demo
 
 # Project executable target
-EXE = ${ARTIFACTS_DIR}/${PROJECT_NAME}.axf
+EXE = ${ARTIFACTS_DIR}/${PROJECT_NAME}.elf
 
 # Set build artifacts
 ARTIFACTS_DIR = build

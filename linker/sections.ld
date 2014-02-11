@@ -23,7 +23,6 @@
 
 SECTIONS
 {
-    /* Executable code stored in text */
     .text :
     {
         . = ALIGN(4);
@@ -90,7 +89,6 @@ SECTIONS
 
     . = ALIGN(4);
     _end = . ;
-
 }
 
 /* end of allocated ram is start of heap, heap grows up towards stack*/

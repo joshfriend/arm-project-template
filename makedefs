@@ -204,7 +204,7 @@ build/%.o: %.cpp
 	@${CXX} -c ${CXXFLAGS} $< -o $@
 
 # Transform .axf to .bin for flasher util
-%.bin: %.axf
+%.bin: %.elf
 	@mkdir -p ${dir $@}
 	@if [ 'x${VERBOSE}' = x ];        \
 	 then                             \
@@ -215,7 +215,7 @@ build/%.o: %.cpp
 	@${CP} ${CPFLAGS} $< $@
 
 # Make assembly listing from executable
-%.lst: %.axf
+%.lst: %.elf
 	@mkdir -p ${dir $@}
 	@if [ 'x${VERBOSE}' = x ];          \
 	 then                               \
@@ -226,7 +226,7 @@ build/%.o: %.cpp
 	@${OD} ${ODFLAGS} $< > $@
 
 # Calculate code size
-%.size: %.axf
+%.size: %.elf
 	@mkdir -p ${dir $@}
 	@echo
 	@echo Code size:

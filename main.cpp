@@ -31,8 +31,11 @@
 #include <driverlib/rom.h>
 #include <driverlib/sysctl.h>
 
-// #include "gpiopin.h"
+#include "gpiopin.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int main(void) {
     // Enable lazy stacking for interrupt handlers.  This allows floating-point
@@ -44,20 +47,17 @@ int main(void) {
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
 
     // Configure GPIO
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-    // GPIOPin blue_led = GPIOPin(GPIO_PORTF_BASE, GPIO_PIN_2);
-    // blue_led.set_direction(GPIO_DIR_MODE_OUT);
+    GPIOPin blue_led = GPIOPin(GPIO_PORTF_BASE, 2);
+    blue_led.set_direction(GPIO_DIR_MODE_OUT);
 
     while(1)
     {
         // Blink the BLUE LED
-        // blue_led.write(GPIO_PIN_2);
-        ROM_GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);
-        SysCtlDelay(SysCtlClockGet() / 10 / 3);
-        // blue_led.write(GPIO_PIN_2);
-        ROM_GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0);
-        SysCtlDelay(SysCtlClockGet() / 10 / 3);
+        ROM_SysCtlDelay(ROM_SysCtlClockGet() / 10 / 3);
+        blue_led.toggle();
     }
 }
 
+#ifdef __cplusplus
+}
+#endif

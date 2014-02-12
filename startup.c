@@ -23,6 +23,9 @@
 #include <stdint.h>
 #include <inc/hw_types.h>
 #include <inc/hw_nvic.h>
+#include <driverlib/rom.h>
+
+#include "compiler.h"
 
 // Application entry point
 extern int main(void);
@@ -40,16 +43,16 @@ extern uint32_t _edata;
 extern uint32_t _bss;
 extern uint32_t _ebss;
 extern uint32_t _stack_top;
-extern void (*__preinit_array_start[])(void);
-extern void (*__preinit_array_end[])(void);
 extern void (*__init_array_start[])(void);
 extern void (*__init_array_end[])(void);
+extern void (*__fini_array_start[])(void);
+extern void (*__fini_array_end[])(void);
 
 // Typedef for exception handler function
 typedef void (*nvic_handler_t)(void);
 
 // NVIC exception table
-__attribute__((section(".nvic_table")))
+__section(".nvic_table")
 nvic_handler_t nvic_table[] = {
     // Stack pointer starts at top of RAM
     // Stack size is defined by linker script
@@ -234,17 +237,7 @@ void reset_handler(void) {
         *dest++ = 0;
     }
 
-    // Enable FPU
-    HWREG(NVIC_CPAC) = ((HWREG(NVIC_CPAC) &
-                         ~(NVIC_CPAC_CP10_M | NVIC_CPAC_CP11_M)) |
-                         NVIC_CPAC_CP10_FULL | NVIC_CPAC_CP11_FULL);
-
-    // Global C++ constructors
-    cnt = __preinit_array_end - __preinit_array_start;
-    for(i = 0; i < cnt; i++) {
-        __preinit_array_start[i]();
-    }
-
+    // Call any initializer functions/constructors
     cnt = __init_array_end - __init_array_start;
     for(i = 0; i < cnt; i++) {
         __init_array_start[i]();
@@ -252,6 +245,12 @@ void reset_handler(void) {
 
     // Application entry
     main();
+
+    // Call any finalizer functions and destructors
+    cnt = __fini_array_end - __fini_array_start;
+    for(i = 0; i < cnt; i++) {
+        __fini_array_start[i]();
+    }
 }
 
 // Non-maskable interrupt handler

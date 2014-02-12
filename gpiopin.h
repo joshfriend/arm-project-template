@@ -47,8 +47,7 @@ typedef void (*gpio_pin_int_cb_t)(void);
 class GPIOPin {
   private:
     // Private variables
-    uint32_t port_base, pin_mask;
-    uint32_t port_num, pin_num;
+    uint32_t port_base, pin_mask, port_num, pin_num;
     gpio_pin_cfg_t config;
 
   public:
@@ -58,6 +57,7 @@ class GPIOPin {
     GPIOPin(uint32_t _port, uint32_t _pin);
 
     // Public methods
+    void operator=(uint32_t x);
     void configure(gpio_pin_cfg_t *cfg);
     void set_direction(gpio_pin_dir_t dir);
     void set_mode(gpio_pin_mode_t mode);

@@ -11,6 +11,7 @@
 #include <driverlib/interrupt.h>
 
 #include "gpiopin.h"
+#include "compiler.h"
 
 // Need to associate GPIO port base with SysCtl registers:
 typedef struct {
@@ -20,7 +21,7 @@ typedef struct {
 } gpio_port_info_t;
 
 // List of all the GPIO ports in order
-static gpio_port_info_t ports[] = {
+static const gpio_port_info_t ports[] = {
     {GPIO_PORTA_BASE, SYSCTL_PERIPH_GPIOA, INT_GPIOA},
     {GPIO_PORTB_BASE, SYSCTL_PERIPH_GPIOB, INT_GPIOB},
     {GPIO_PORTC_BASE, SYSCTL_PERIPH_GPIOC, INT_GPIOC},
@@ -32,12 +33,28 @@ static gpio_port_info_t ports[] = {
 #define NUM_GPIO_PORTS sizeof(ports) / sizeof(*ports)
 #define NUM_PINS_PER_PORT 8
 
+// Pin interrupt callbacks
 static gpio_pin_int_cb_t gpio_pin_callbacks[NUM_GPIO_PORTS][NUM_PINS_PER_PORT];
+
+
+// Private function prototypes
+static void attach_exception_handlers(void);
+static void gpio_port_a_exception_handler(void);
+static void gpio_port_b_exception_handler(void);
+static void gpio_port_c_exception_handler(void);
+static void gpio_port_d_exception_handler(void);
+static void gpio_port_e_exception_handler(void);
+static void gpio_port_f_exception_handler(void);
+static void gpio_master_exception_handler(uint32_t port_num);
+
 
 GPIOPin::GPIOPin(uint32_t _port, uint32_t _pin) {
     // Check parameters
     ASSERT(_port < NUM_GPIO_PORTS);
     ASSERT(_pin < NUM_PINS_PER_PORT);
+
+    port_num = _port;
+    pin_num  = _pin;
 
     // Get driverlib parameters for pin/port
     port_base = ports[_port].base;
@@ -56,6 +73,11 @@ GPIOPin::GPIOPin(uint32_t _port, uint32_t _pin) {
 
     // Port default is input
     MAP_GPIOPinTypeGPIOInput(port_base, pin_mask);
+}
+
+void GPIOPin::operator=(uint32_t x)
+{
+    write(x);
 }
 
 void GPIOPin::configure(gpio_pin_cfg_t *cfg) {
@@ -171,7 +193,6 @@ void GPIOPin::attach_callback(gpio_pin_int_type_t event, void(*callback)(void)) 
     ASSERT(event < GPIO_PIN_INT_TOTAL);
 
     uint32_t int_type = 0;
-    uint32_t i;
 
     switch(event) {
         case GPIO_PIN_INT_LOW:
@@ -194,18 +215,13 @@ void GPIOPin::attach_callback(gpio_pin_int_type_t event, void(*callback)(void)) 
             return;
     }
 
-    // Save callback
-    for(i=0; i < NUM_GPIO_PORTS; i++) {
-        if(ports[i].base == port_base) {
-            gpio_pin_callbacks[port_num][pin_num] = callback;
-        }
-    }
+    gpio_pin_callbacks[port_num][pin_num] = callback;
 
     // Apply settings
     MAP_GPIOPinIntClear(port_base, pin_mask);
     MAP_GPIOPinIntEnable(port_base, pin_mask);
     MAP_GPIOIntTypeSet(port_base, pin_mask, int_type);
-    MAP_IntEnable(ports[i].int_num);
+    MAP_IntEnable(ports[port_num].int_num);
     IntMasterEnable();
 }
 
@@ -215,7 +231,7 @@ void GPIOPin::detach_callback(void) {
     // Erase callback
     for(i=0; i < NUM_GPIO_PORTS; i++) {
         if(ports[i].base == port_base) {
-            gpio_pin_callbacks[port_num][pin_num] = 0;
+            gpio_pin_callbacks[i][pin_num] = 0;
         }
     }
 
@@ -224,7 +240,42 @@ void GPIOPin::detach_callback(void) {
     MAP_GPIOIntTypeSet(port_base, pin_mask, GPIO_PIN_INT_NONE);
 }
 
-void gpio_master_exception_handler(uint32_t port_num) {
+#pragma GCC diagnostic ignored "-Wunused-function"
+__section(".init")
+static void attach_exception_handlers(void) {
+    IntRegister(INT_GPIOA, gpio_port_a_exception_handler);
+    IntRegister(INT_GPIOB, gpio_port_b_exception_handler);
+    IntRegister(INT_GPIOC, gpio_port_c_exception_handler);
+    IntRegister(INT_GPIOD, gpio_port_d_exception_handler);
+    IntRegister(INT_GPIOE, gpio_port_e_exception_handler);
+    IntRegister(INT_GPIOF, gpio_port_f_exception_handler);
+}
+
+static void gpio_port_a_exception_handler(void) {
+    gpio_master_exception_handler(0);
+}
+
+static void gpio_port_b_exception_handler(void) {
+    gpio_master_exception_handler(1);
+}
+
+static void gpio_port_c_exception_handler(void) {
+    gpio_master_exception_handler(2);
+}
+
+static void gpio_port_d_exception_handler(void) {
+    gpio_master_exception_handler(3);
+}
+
+static void gpio_port_e_exception_handler(void) {
+    gpio_master_exception_handler(4);
+}
+
+static void gpio_port_f_exception_handler(void) {
+    gpio_master_exception_handler(5);
+}
+
+static void gpio_master_exception_handler(uint32_t port_num) {
     uint32_t i;
     uint32_t isr = GPIOPinIntStatus(ports[port_num].base, true);
 

@@ -42,7 +42,9 @@ int main(void) {
     {
         // Blink the BLUE LED
         MAP_SysCtlDelay(MAP_SysCtlClockGet() / 10 / 3);
-        blue_led.toggle();
+        blue_led = 1;
+        MAP_SysCtlDelay(MAP_SysCtlClockGet() / 10 / 3);
+        blue_led = 0;
     }
 }
 

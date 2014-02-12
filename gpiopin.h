@@ -3,7 +3,7 @@
 class GPIOPin {
   private:
     // Private variables
-    uint32_t port, pin, type, dir, drive;
+    uint32_t port_base, pin_mask, type, dir, drive;
 
   public:
     // Public variables
@@ -19,4 +19,5 @@ class GPIOPin {
     void write(uint32_t x);
     void toggle(void);
     uint32_t read(void);
+    void attach_callback(uint32_t event, void(*callback)(void));
 };

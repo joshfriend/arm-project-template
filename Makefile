@@ -32,6 +32,7 @@ EXE = ${ARTIFACTS_DIR}/${PROJECT_NAME}.elf
 ARTIFACTS_DIR = build
 ARTIFACTS = ${EXE}                                \
             ${ARTIFACTS_DIR}/${PROJECT_NAME}.bin  \
+            ${ARTIFACTS_DIR}/${PROJECT_NAME}.hex  \
             ${ARTIFACTS_DIR}/${PROJECT_NAME}.lst  \
             ${ARTIFACTS_DIR}/${PROJECT_NAME}.size \
             ${ARTIFACTS_DIR}/${PROJECT_NAME}.map

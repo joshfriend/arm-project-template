@@ -115,9 +115,6 @@ LIBDRIVER_PATH=${TI_INCLUDE_PATH}/${LIBDRIVER_FILE}
 # List of all libraries to link
 LIBS = ${LIBM_PATH} ${LIBC_PATH} ${LIB_GCC_PATH}
 
-# Flags for objcopy
-CPFLAGS = -Obinary
-
 # Flags for objdump
 ODFLAGS = -S
 
@@ -203,16 +200,27 @@ build/%.o: %.cpp
 	 fi
 	@${CXX} -c ${CXXFLAGS} $< -o $@
 
-# Transform .axf to .bin for flasher util
+# Transform .elf to .bin for flasher util
 %.bin: %.elf
 	@mkdir -p ${dir $@}
 	@if [ 'x${VERBOSE}' = x ];        \
 	 then                             \
 	     echo "CP  $< -> $@";         \
 	 else                             \
-	     echo ${CP} ${CPFLAGS} $< $@; \
+	     echo ${CP} -O binary $< $@; \
 	 fi
-	@${CP} ${CPFLAGS} $< $@
+	@${CP} -O binary $< $@
+
+# Transform .elf to .hex
+%.hex: %.elf
+	@mkdir -p ${dir $@}
+	@if [ 'x${VERBOSE}' = x ];        \
+	 then                             \
+	     echo "CP  $< -> $@";         \
+	 else                             \
+	     echo ${CP} -O ihex $< $@; \
+	 fi
+	@${CP} -O ihex $< $@
 
 # Make assembly listing from executable
 %.lst: %.elf

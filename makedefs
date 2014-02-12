@@ -3,13 +3,13 @@
 #==============================================================================
 
 # Collect source files
-AS_SRC := ${shell find . -type f -name '*.s'}
-C_SRC := ${shell find . -type f -name '*.c'}
-CXX_SRC := ${shell find . -type f -name '*.cpp'}
+AS_SRC := ${patsubst ./%.c, %.c, ${shell find . -type f -name '*.s'}}
+C_SRC := ${patsubst ./%.c, %.c, ${shell find . -type f -name '*.c'}}
+CXX_SRC := ${patsubst ./%.c, %.c, ${shell find . -type f -name '*.cpp'}}
 
-OBJS = $(patsubst ./%.o, build/%.o, $(C_SRC:.c=.o))       \
-       $(patsubst ./%.o, build/%.o, $(CXX_SRC:.cpp=.o)) \
-       $(patsubst ./%.o, build/%.o, $(AS_SRC:.s=.o))
+OBJS = ${patsubst %.o, build/%.o, ${C_SRC:.c=.o}}     \
+       ${patsubst %.o, build/%.o, ${CXX_SRC:.cpp=.o}} \
+       ${patsubst %.o, build/%.o, ${AS_SRC:.s=.o}}
 
 #==============================================================================
 #     Toolchain settings
@@ -34,8 +34,16 @@ SIZE = ${PREFIX_ARM}-size
 OS:=${shell uname -s}
 ifneq ($(findstring CYGWIN, ${OS}), )
 # Windows
-TI_ROOT = C\:/ti/
+TI_ROOT = C\:/ti
 else
+
+# Include depend files if not on windows
+ifneq ($(MAKECMDGOALS),clean)
+-include $(addprefix build/, $(subst .c,.d,$(C_SRC)))
+-include $(addprefix build/, $(subst .cpp,.d,$(CXX_SRC)))
+-include $(addprefix build/, $(subst .s,.d,$(AS_SRC)))
+endif
+
 ifneq ($(findstring Darwin, ${OS}), )
 # Mac OSX
 TI_ROOT = /Developer/ti
@@ -51,7 +59,6 @@ TIVIAWARE     = ${TI_ROOT}/tiviaware
 # Define symbols
 DEF_SYMS = PART_${PART}           \
 		   TARGET_IS_BLIZZARD_RA1 \
-		   gcc
 
 # Include paths
 INC_PATHS = ${TI_INCLUDE_PATH}
@@ -59,6 +66,8 @@ INC_PATHS = ${TI_INCLUDE_PATH}
 # Add proper flags to includes and defines
 DEFS = ${patsubst %,-D%,${subst ' ', ,${DEF_SYMS}}}
 INCS = ${patsubst %,-I%,${subst ' ', ,${INC_PATHS}}}
+
+WERROR = -Werror=parentheses
 
 # Options for assembler.
 ASFLAGS=-mthumb \
@@ -72,6 +81,7 @@ CFLAGS=-mthumb             \
 	   -O3                 \
 	   -std=gnu99          \
 	   -Wall               \
+	   ${WERROR}           \
 	   -c                  \
 	   -g                  \
 	   -MD                 \
@@ -84,6 +94,7 @@ CXXFLAGS=-mthumb             \
 		 ${FPU}              \
 		 -O3                 \
 		 -Wall               \
+		 ${WERROR}           \
 		 -fno-exceptions     \
 		 -fno-rtti           \
 		 -c                  \
@@ -160,12 +171,6 @@ SECTION_FILE = linker/sections.ld
 #==============================================================================
 #    Make rules
 #==============================================================================
-
-ifneq ($(MAKECMDGOALS),clean)
--include $(addprefix build/, $(subst .c,.d,$(C_SRC)))
--include $(addprefix build/, $(subst .cpp,.d,$(CXX_SRC)))
--include $(addprefix build/, $(subst .s,.d,$(AS_SRC)))
-endif
 
 # Compile assembly files
 build/%.o: %.a

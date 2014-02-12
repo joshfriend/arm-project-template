@@ -147,20 +147,6 @@ caddr_t _sbrk(unsigned int incr)
     return (caddr_t)prev_heap_end;
 }
 
-// caddr_t _sbrk(unsigned int incr)
-// {
-//     char *prev_heap_end;
-//     if (heap_end == 0) {
-//         heap_end = (caddr_t)&_heap_bottom;            //1
-//     }
-//     prev_heap_end = heap_end;                         //2
-//     if (heap_end + incr > (caddr_t)&_heap_top) {      //3
-//         return (caddr_t)0;                            //4
-//     }
-//     heap_end += incr;
-//     return (caddr_t) prev_heap_end;                   //5
-// }
-
 int _fstat(int file, struct stat * st)
 {
     return 0;

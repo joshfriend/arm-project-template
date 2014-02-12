@@ -36,7 +36,7 @@ extern "C" {
 int main(void) {
     // Configure GPIO
     GPIOPin blue_led = GPIOPin(5, 2);
-    blue_led.set_direction(GPIO_DIR_MODE_OUT);
+    blue_led.set_direction(GPIO_PIN_DIR_OUT);
 
     while(1)
     {

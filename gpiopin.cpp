@@ -2,39 +2,37 @@
 
 #include <inc/hw_types.h>
 #include <inc/hw_memmap.h>
+#include <inc/hw_ints.h>
 #include <driverlib/rom.h>
 #include <driverlib/rom_map.h>
 #include <driverlib/gpio.h>
 #include <driverlib/sysctl.h>
 #include <driverlib/debug.h>
+#include <driverlib/interrupt.h>
 
 #include "gpiopin.h"
 
-static void (*port_a_cb_funcs[8])(void);
-static void (*port_b_cb_funcs[8])(void);
-static void (*port_c_cb_funcs[8])(void);
-static void (*port_d_cb_funcs[8])(void);
-static void (*port_e_cb_funcs[8])(void);
-static void (*port_f_cb_funcs[8])(void);
-
 // Need to associate GPIO port base with SysCtl registers:
 typedef struct {
-    uint32_t periph_base;
+    uint32_t base;
     uint32_t sysctl_reg;
+    uint32_t int_num;
 } gpio_port_info_t;
 
 // List of all the GPIO ports in order
-gpio_port_info_t ports[] = {
-    {GPIO_PORTA_BASE, SYSCTL_PERIPH_GPIOA},
-    {GPIO_PORTB_BASE, SYSCTL_PERIPH_GPIOB},
-    {GPIO_PORTC_BASE, SYSCTL_PERIPH_GPIOC},
-    {GPIO_PORTD_BASE, SYSCTL_PERIPH_GPIOD},
-    {GPIO_PORTE_BASE, SYSCTL_PERIPH_GPIOE},
-    {GPIO_PORTF_BASE, SYSCTL_PERIPH_GPIOF},
+static gpio_port_info_t ports[] = {
+    {GPIO_PORTA_BASE, SYSCTL_PERIPH_GPIOA, INT_GPIOA},
+    {GPIO_PORTB_BASE, SYSCTL_PERIPH_GPIOB, INT_GPIOB},
+    {GPIO_PORTC_BASE, SYSCTL_PERIPH_GPIOC, INT_GPIOC},
+    {GPIO_PORTD_BASE, SYSCTL_PERIPH_GPIOD, INT_GPIOD},
+    {GPIO_PORTE_BASE, SYSCTL_PERIPH_GPIOE, INT_GPIOE},
+    {GPIO_PORTF_BASE, SYSCTL_PERIPH_GPIOF, INT_GPIOF},
 };
 
-#define NUM_GPIO_PORTS sizeof(portmap) / sizeof(*portmap)
+#define NUM_GPIO_PORTS sizeof(ports) / sizeof(*ports)
 #define NUM_PINS_PER_PORT 8
+
+static gpio_pin_int_cb_t gpio_pin_callbacks[NUM_GPIO_PORTS][NUM_PINS_PER_PORT];
 
 GPIOPin::GPIOPin(uint32_t _port, uint32_t _pin) {
     // Check parameters
@@ -42,13 +40,13 @@ GPIOPin::GPIOPin(uint32_t _port, uint32_t _pin) {
     ASSERT(_pin < NUM_PINS_PER_PORT);
 
     // Get driverlib parameters for pin/port
-    port_base = ports[_port].periph_base;
+    port_base = ports[_port].base;
     pin_mask  = 1 << _pin;
 
     // Save default parameters
-    dir   = GPIO_DIR_MODE_IN;
-    type  = GPIO_PIN_TYPE_STD;
-    drive = GPIO_STRENGTH_2MA;
+    config.dir   = GPIO_PIN_DIR_IN;
+    config.mode  = GPIO_PIN_MODE_STD;
+    config.drive = GPIO_PIN_DRIVE_2MA;
 
     // Enable peripheral
     MAP_SysCtlPeripheralEnable(ports[_port].sysctl_reg);
@@ -60,27 +58,100 @@ GPIOPin::GPIOPin(uint32_t _port, uint32_t _pin) {
     MAP_GPIOPinTypeGPIOInput(port_base, pin_mask);
 }
 
-void GPIOPin::configure(uint32_t _type, uint32_t _dir, uint32_t _drive) {
-    type = _type;
-    dir = _dir;
-    drive = _drive;
-    set_direction(dir);
-    MAP_GPIOPadConfigSet(port_base, pin_mask, drive, type);
+void GPIOPin::configure(gpio_pin_cfg_t *cfg) {
+    uint32_t d = 0;
+    uint32_t m = 0;
+
+    // Check parameters
+    ASSERT(cfg->dir < GPIO_PIN_DIR_TOTAL);
+    ASSERT(cfg->mode < GPIO_PIN_MODE_TOTAL);
+    ASSERT(cfg->drive < GPIO_PIN_DRIVE_TOTAL);
+
+    // Save settings
+    config.dir   = cfg->dir;
+    config.mode  = cfg->mode;
+    config.drive = cfg->drive;
+
+    switch(cfg->drive) {
+        case GPIO_PIN_DRIVE_2MA:
+            d = GPIO_STRENGTH_2MA;
+            break;
+        case GPIO_PIN_DRIVE_4MA:
+            d = GPIO_STRENGTH_4MA;
+            break;
+        case GPIO_PIN_DRIVE_8MA:
+            d = GPIO_STRENGTH_8MA;
+            break;
+        case GPIO_PIN_DRIVE_8MA_SC:
+            d = GPIO_STRENGTH_8MA_SC;
+            break;
+        default:
+            break;
+    }
+
+    switch(cfg->mode) {
+        case GPIO_PIN_MODE_STD:
+            m = GPIO_PIN_TYPE_STD;
+            break;
+        case GPIO_PIN_MODE_STD_WPU:
+            m = GPIO_PIN_TYPE_STD_WPU;
+            break;
+        case GPIO_PIN_MODE_STD_WPD:
+            m = GPIO_PIN_TYPE_STD_WPD;
+            break;
+        case GPIO_PIN_MODE_OD:
+            m = GPIO_PIN_TYPE_OD;
+            break;
+        case GPIO_PIN_MODE_OD_WPU:
+            m = GPIO_PIN_TYPE_OD_WPU;
+            break;
+        case GPIO_PIN_MODE_OD_WPD:
+            m = GPIO_PIN_TYPE_OD_WPD;
+            break;
+        case GPIO_PIN_MODE_ANALOG:
+            m = GPIO_PIN_TYPE_ANALOG;
+            break;
+        default:
+            break;
+    }
+
+    // Apply settings
+    set_direction(config.dir);
+    MAP_GPIOPadConfigSet(port_base, pin_mask, d, m);
 }
 
-void GPIOPin::set_direction(uint32_t _dir) {
-    dir = _dir;
-    MAP_GPIODirModeSet(port_base, pin_mask, dir);
+void GPIOPin::set_direction(gpio_pin_dir_t dir) {
+    // Check parameters
+    ASSERT(dir < GPIO_PIN_DIR_TOTAL);
+
+    // Save settings
+    config.dir = dir;
+
+    // Apply settings
+    configure(&config);
 }
 
-void GPIOPin::set_type(uint32_t _type) {
-    type = _type;
-    MAP_GPIOPadConfigSet(port_base, pin_mask, drive, type);
+void GPIOPin::set_mode(gpio_pin_mode_t mode) {
+    // Check parameters
+    ASSERT(mode < GPIO_PIN_MODE_TOTAL);
+
+    // Save settings
+    config.mode = mode;
+
+    // Apply settings
+    configure(&config);
 }
 
-void GPIOPin::set_drive_strength(uint32_t _drive) {
-    drive = _drive;
-    MAP_GPIOPadConfigSet(port_base, pin_mask, drive, type);
+void GPIOPin::set_drive_strength(gpio_pin_drive_t drive) {
+    // Check parameters
+    ASSERT(drive < GPIO_PIN_DRIVE_TOTAL);
+
+    // Save settings
+    config.drive = drive;
+
+    // Apply settings
+    configure(&config);
+
 }
 
 void GPIOPin::write(uint32_t x) {
@@ -95,6 +166,76 @@ uint32_t GPIOPin::read(void) {
     return (MAP_GPIOPinRead(port_base, pin_mask) != 0);
 }
 
-void GPIOPin::attach_callback(uint32_t event, void(*callback)(void)) {
-    ;
+void GPIOPin::attach_callback(gpio_pin_int_type_t event, void(*callback)(void)) {
+    // Check parameters
+    ASSERT(event < GPIO_PIN_INT_TOTAL);
+
+    uint32_t int_type = 0;
+    uint32_t i;
+
+    switch(event) {
+        case GPIO_PIN_INT_LOW:
+            int_type = GPIO_FALLING_EDGE;
+            break;
+        case GPIO_PIN_INT_HIGH:
+            int_type = GPIO_RISING_EDGE;
+            break;
+        case GPIO_PIN_INT_RISING:
+            int_type = GPIO_BOTH_EDGES;
+            break;
+        case GPIO_PIN_INT_FALLING:
+            int_type = GPIO_LOW_LEVEL;
+            break;
+        case GPIO_PIN_INT_BOTH:
+            int_type = GPIO_HIGH_LEVEL;
+            break;
+        default:
+            // type NONE or invalid
+            return;
+    }
+
+    // Save callback
+    for(i=0; i < NUM_GPIO_PORTS; i++) {
+        if(ports[i].base == port_base) {
+            gpio_pin_callbacks[port_num][pin_num] = callback;
+        }
+    }
+
+    // Apply settings
+    MAP_GPIOPinIntClear(port_base, pin_mask);
+    MAP_GPIOPinIntEnable(port_base, pin_mask);
+    MAP_GPIOIntTypeSet(port_base, pin_mask, int_type);
+    MAP_IntEnable(ports[i].int_num);
+    IntMasterEnable();
+}
+
+void GPIOPin::detach_callback(void) {
+    uint32_t i;
+
+    // Erase callback
+    for(i=0; i < NUM_GPIO_PORTS; i++) {
+        if(ports[i].base == port_base) {
+            gpio_pin_callbacks[port_num][pin_num] = 0;
+        }
+    }
+
+    // Apply settings
+    MAP_GPIOPinIntDisable(port_base, pin_mask);
+    MAP_GPIOIntTypeSet(port_base, pin_mask, GPIO_PIN_INT_NONE);
+}
+
+void gpio_master_exception_handler(uint32_t port_num) {
+    uint32_t i;
+    uint32_t isr = GPIOPinIntStatus(ports[port_num].base, true);
+
+    MAP_GPIOPinIntClear(ports[port_num].base, isr);
+
+    // Execute callbacks
+    for(i=0; i<NUM_GPIO_PORTS; i++) {
+        if(isr & (1 << i)) {
+            if(gpio_pin_callbacks[port_num][i]) {
+                gpio_pin_callbacks[port_num][i]();
+            }
+        }
+    }
 }
